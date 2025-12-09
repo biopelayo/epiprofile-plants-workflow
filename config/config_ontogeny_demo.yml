@@ -1,0 +1,28 @@
+# Example configuration for an internal Arabidopsis ontogeny demo dataset
+# This model should be re-usable for other PXD or internal projects by
+# just changing paths and metadata.
+
+project_id: "ONTONOGENY_DEMO"
+description: "Arabidopsis rosette ontogeny demo (BOT/FLOR/SEN) for EpiProfile_PLANTS"
+
+# Root directories (relative to this repo or absolute paths)
+base_dir: "/path/to/ONTONOGENY_DEMO"   # TODO: adjust locally
+raw_dir: "raw_wiff"
+mzml_dir: "mzML"
+ms1_dir: "MS1"
+ms2_dir: "MS2"
+epiprofile_output_dir: "EpiProfile_output"
+
+# Species / histone layout configuration
+species: "Arabidopsis thaliana"
+epiprofile_layout: "layouts/AT_histone_layout_ontogeny_demo.txt"
+init_histone_catalog: "catalogs/init_histone0_AT.m"
+
+# Phenodata / metadata files
+phenodata_file: "phenodata/phenodata_ontogeny_demo.tsv"
+
+# Flags (placeholders for future use)
+convert_wiff_to_mzml: true
+extract_ms1_ms2: true
+run_epiprofile: true
+postprocess_in_R: true
