@@ -116,3 +116,65 @@ epiprofile-plants-workflow/
     ├── 01_overview.md
     ├── 02_setup.md
     └── 03_examples.md
+```
+## 4. Requirements
+
+To run the full WIFF → mzML → MS1/MS2 → EpiProfile_PLANTS → R workflow you will typically need:
+
+- **Operating system**
+  - Linux or **WSL2** (recommended for Snakemake + Docker).
+- **Environment management**
+  - `conda` / `mamba` to manage environments.
+- **Workflow engine**
+  - `snakemake` (e.g. `snakemake >= 7`).
+- **Container runtime**
+  - Docker (or Apptainer/Singularity) for:
+    - ProteoWizard `msconvert`,
+    - any other vendor-dependent tools.
+- **EpiProfile layer**
+  - Access to the **EpiProfile_PLANTS** code (MATLAB).
+  - **MATLAB** or **MATLAB Runtime** installed and accessible.
+- **Post-processing / statistics**
+  - **R** with packages for data wrangling and QC (e.g. `data.table`, `tidyverse`).
+  - Optionally, **rmarkdown / Quarto** for producing reports and notebooks.
+
+---
+
+## 5. Configuration model
+
+Each project (PRIDE PXD dataset or internal dataset) is configured via a YAML file.  
+A typical example (for PXD046034) looks like:
+
+```yaml
+# config/config_pxd046034.yml
+
+project_id: "PXD046034"
+description: "Reanalysis of PXD046034 with EpiProfile_PLANTS"
+
+# Root paths
+base_dir: "E:/EpiProfile_PLANTS_PXD046034"
+raw_dir:  "raw_wiff"
+mzml_dir: "mzML"
+ms1_dir:  "MS1_MS2/MS1"
+ms2_dir:  "MS1_MS2/MS2"
+
+# Conversion settings
+msconvert_container: "biopelayo/msconvert:latest"
+msconvert_profile: true
+msconvert_centroid: true
+
+# EpiProfile_PLANTS settings
+epiprofile_root: "E:/EpiProfile_20_AT/src"
+species_layout: "AT"          # AT / MP / CR / core
+layout_file: "layouts/AT_H3H4_layout.txt"
+init_histone0: "init_histone0_AT.m"
+
+# Phenodata / metadata
+phenodata_file: "phenodata/phenodata_pxd046034.tsv"
+sample_column: "sample_id"
+
+# Post-processing
+output_dir: "EpiProfile_output"
+
+
+    
