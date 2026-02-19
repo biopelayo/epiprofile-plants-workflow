@@ -1,6 +1,6 @@
 # Configuration for PXD014739
 # "Proteomic profiling of histone acetylation pattern in Arabidopsis"
-# Instrument: LTQ Orbitrap Elite | Format: Thermo .raw | ~147 files, ~52.5 GB
+# Instrument: LTQ Orbitrap Elite | Format: Thermo .raw | 114 files, ~43 GB
 
 project_id: "PXD014739"
 description: "Reanalysis of PXD014739 — Arabidopsis histone acetylation profiling"

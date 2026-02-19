@@ -1,7 +1,7 @@
 # Configuration for PXD046034
 # "Adaptive epigenetic changes in histone variants and modifications
 #  rescue the fitness of Arabidopsis plants with dysfunctional histone chaperones"
-# Instrument: Orbitrap Fusion Lumos | Format: Thermo .raw | ~48 files, ~21 GB
+# Instrument: Orbitrap Fusion Lumos | Format: Thermo .raw | 48 files, ~32 GB
 
 project_id: "PXD046034"
 description: "Reanalysis of PXD046034 — Arabidopsis histone chaperone mutants"

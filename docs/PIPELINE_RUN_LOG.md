@@ -35,7 +35,7 @@ All downloads go to **D:** drive.
 | PXD046788 | Arabidopsis calli HDAC inhibitors (TSA/NaB) | Orbitrap Fusion Lumos | `.raw` | 58 | ~48 GB |
 | PXD014739 | Arabidopsis histone acetylation profiling | LTQ Orbitrap Elite | `.raw` | 114 | ~52 GB |
 
-**Total actual: ~132 GB raw + ~80 GB mzML output**
+**Total actual: ~123 GB raw + ~40 GB ms1/ms2 text output**
 
 ---
 

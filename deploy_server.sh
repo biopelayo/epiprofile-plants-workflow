@@ -2,18 +2,18 @@
 # ==============================================================
 # EpiProfile-PLANTS Server Deployment Script
 # ==============================================================
-# Deploys the PXD Triada Pipeline to a Linux server.
+# Deploys the EpiProfile_PLANTS preprocessing pipeline to a Linux server.
 #
 # PREREQUISITES:
 #   - Docker installed and running (for MSConvert — ProteoWizard is Windows-only)
 #   - Python 3.10+ with pip
-#   - ~500 GB free disk space (3 PXD datasets + mzML output)
+#   - ~500 GB free disk space (3 PXD datasets + converted output)
 #
 # USAGE:
 #   bash deploy_server.sh /path/to/workspace [threads]
 #
 # DATA TRANSFER (from Windows to server):
-#   # Transfer already-converted triada data from D: drive:
+#   # Transfer already-converted data from D: drive:
 #   rsync -avP D:/epiprofile_data/ user@server:/workspace/epiprofile_data/
 #
 #   # Or transfer only raw files and re-convert on server:
@@ -23,10 +23,9 @@
 #   epiprofile_data/
 #   +-- PXD046034/
 #   |   +-- raw/           # 48 .raw files (~32 GB)
-#   |   +-- triada/
-#   |   |   +-- ms1/       # 48 MS1-only mzML
-#   |   |   +-- ms2/       # 48 MS2-only mzML
-#   |   |   +-- raw_empty/ # placeholders
+#   |   +-- mzML/          # intermediate centroided mzML (deleted after extraction)
+#   |   +-- MS1_MS2/       # 48 .ms1 + 48 .ms2 text files
+#   |   +-- RawData/       # 48 empty .raw placeholders (for EpiProfile)
 #   |   +-- download_report.json
 #   |   +-- conversion_manifest.json
 #   |   +-- logs/
@@ -35,7 +34,10 @@
 #   repo/
 #   +-- epiprofile-plants-workflow-main/  # git clone of the pipeline
 #
-# Total disk needed: ~500 GB (raw + mzML + working space)
+# NOTE: xtract_xml.exe (mzML → .ms1/.ms2 text) is Windows-only.
+# On Linux, use Wine or convert on Windows and rsync .ms1/.ms2 files.
+#
+# Total disk needed: ~500 GB (raw + mzML + ms1/ms2 + working space)
 # ==============================================================
 
 set -euo pipefail
@@ -115,7 +117,7 @@ echo ""
 
 # --- Step 2: Create directory structure ---
 echo -e "${GREEN}[2/6] Setting up workspace...${NC}"
-mkdir -p "$WORKSPACE"/{repo,epiprofile_data/{PXD046034,PXD046788,PXD014739}/{raw,triada/{ms1,ms2,raw_empty},logs}}
+mkdir -p "$WORKSPACE"/{repo,epiprofile_data/{PXD046034,PXD046788,PXD014739}/{raw,mzML,MS1_MS2,RawData,logs}}
 echo -e "  ${GREEN}Directory structure created.${NC}"
 echo ""
 

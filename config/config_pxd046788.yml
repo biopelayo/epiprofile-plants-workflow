@@ -1,7 +1,7 @@
 # Configuration for PXD046788
 # "Unraveling epigenetic changes in A. thaliana calli:
 #  Impact of HDAC inhibitors"
-# Instrument: Orbitrap Fusion Lumos | Format: Thermo .raw | ~96 files, ~77.5 GB
+# Instrument: Orbitrap Fusion Lumos | Format: Thermo .raw | 58 files, ~48 GB
 
 project_id: "PXD046788"
 description: "Reanalysis of PXD046788 — Arabidopsis calli HDAC inhibitors"

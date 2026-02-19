@@ -1,7 +1,12 @@
 # EpiProfile_PLANTS Tutorial
 
 Step-by-step guide for processing Arabidopsis histone PTM data from PRIDE
-datasets through the EpiProfile_PLANTS pipeline.
+datasets through the EpiProfile_PLANTS preprocessing pipeline.
+
+This workflow produces `.ms1` + `.ms2` text files. The actual histone PTM
+quantification is done by
+[**epiprofile-plants**](https://github.com/biopelayo/epiprofile-plants),
+a separate MATLAB tool.
 
 ---
 
@@ -14,14 +19,27 @@ datasets through the EpiProfile_PLANTS pipeline.
 | **Windows 10/11** | — | MSConvert and xtract_xml are Windows-only binaries |
 | **Python 3.10+** | 3.13 tested | Pipeline scripts |
 | **MSConvert** | ProteoWizard 3.x | `.raw` to centroided `.mzML` |
-| **xtract_xml.exe** | EpiProfile 2.1 bundle | `.mzML` to `.ms1` + `.ms2` text |
-| **MATLAB** | R2023b+ | Run EpiProfile.m |
+| **xtract_xml.exe** | EpiProfile 2.1 bundle (pXtract) | `.mzML` to `.ms1` + `.ms2` text |
 | **pridepy** | 0.0.12+ | Download from PRIDE |
+| **Snakemake** | 7+ (optional) | Rule-based workflow execution |
+
+For the quantification step (after this workflow):
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| **MATLAB** | R2023b+ | Run [epiprofile-plants](https://github.com/biopelayo/epiprofile-plants) |
 
 ### Install Python dependencies
 
 ```bash
 pip install pridepy ppx
+```
+
+### Optional: install Snakemake environment
+
+```bash
+mamba env create -f envs/snakemake.yml
+mamba activate epiprofile-plants-workflow
 ```
 
 ### Disk space
@@ -42,9 +60,40 @@ xtract_xml.exe --help
 
 ---
 
-## Step 1: Download raw files from PRIDE
+## Option A: Run with Snakemake
 
-Use the standalone download script to fetch `.raw` files via FTP:
+Snakemake chains the three pipeline stages automatically. Each dataset has
+its own config YAML (`config/config_pxd046034.yml`, etc.).
+
+```bash
+# Activate the environment
+mamba activate epiprofile-plants-workflow
+
+# Run the full pipeline for PXD046034
+snakemake -s workflow/Snakefile --configfile config/config_pxd046034.yml
+
+# Or run only a specific stage:
+snakemake -s workflow/Snakefile --configfile config/config_pxd046034.yml download_pxd
+snakemake -s workflow/Snakefile --configfile config/config_pxd046034.yml convert_raw_to_mzml
+snakemake -s workflow/Snakefile --configfile config/config_pxd046034.yml extract_ms1_ms2_text
+```
+
+### Snakemake rule chain
+
+```
+download_pxd  →  convert_raw_to_mzml  →  extract_ms1_ms2_text
+(pridepy FTP)    (MSConvert)              (xtract_xml.exe)
+```
+
+Each rule reads settings from the config YAML. See the
+[config keys table in README.md](../README.md#config-keys-per-dataset-yaml)
+for all available options.
+
+---
+
+## Option B: Run with standalone scripts
+
+### Step 1: Download raw files from PRIDE
 
 ```bash
 python workflow/scripts/pxd_triada_pipeline.py PXD046034 \
@@ -61,16 +110,14 @@ D:/epiprofile_data/PXD046034/
   download_report.json
 ```
 
-### Troubleshooting downloads
+#### Troubleshooting downloads
 
 - **0-byte files**: pridepy sometimes creates placeholder files. Delete them
   and re-run the download command.
 - **Slow FTP**: Try `--protocol aspera` if Aspera client is installed.
 - **Partial downloads**: Re-run the same command; it skips existing files.
 
----
-
-## Step 2: Convert raw to .ms1 + .ms2
+### Step 2: Convert raw to .ms1 + .ms2
 
 The `convert_and_extract.py` script handles the full conversion pipeline:
 
@@ -88,7 +135,7 @@ python workflow/scripts/convert_and_extract.py \
     --xtract "D:/EpiProfile2.1_1Basic_Running_version/xtract_xml.exe"
 ```
 
-### What happens internally
+#### What happens internally
 
 1. **MSConvert**: Each `.raw` file is converted to a full centroided `.mzML`
    with filters: `peakPicking vendor msLevel=1-` and `metadataFixer`.
@@ -100,7 +147,7 @@ python workflow/scripts/convert_and_extract.py \
 5. **Cleanup**: Intermediate `.mzML`, `.rawInfo`, and `.xtract` files are
    deleted to save disk space.
 
-### Output
+#### Output
 
 ```
 D:/epiprofile_data/PXD046034/
@@ -109,7 +156,7 @@ D:/epiprofile_data/PXD046034/
   RawData/              # 48 empty .raw placeholders
 ```
 
-### Troubleshooting conversion
+#### Troubleshooting conversion
 
 - **MSConvert hangs** (zero CPU, no progress): Kill the process and re-run.
   The script will skip already-converted files.
@@ -140,7 +187,7 @@ All three counts should match the number of raw files (e.g., 48 for PXD046034).
 
 ---
 
-## Step 4: Organize into batch folders
+## Step 4: Organize into batch folders (optional)
 
 For running EpiProfile on subsets of samples grouped by experimental condition,
 create an organized directory with batch folders:
@@ -190,9 +237,29 @@ complete list of 31 condition groups across all 3 PXD datasets.
 
 ---
 
-## Step 5: Configure EpiProfile
+## Step 5: Quantify with epiprofile-plants
 
-Edit the `paras.txt` file in the EpiProfile directory to point to a batch:
+**This step uses a different repository:**
+[**biopelayo/epiprofile-plants**](https://github.com/biopelayo/epiprofile-plants)
+
+`epiprofile-plants` is a MATLAB extension of EpiProfile 2.0 adapted for plant
+histone proteomics. It provides:
+
+- **Species bundles** (Arabidopsis, Marchantia, Chlamydomonas) with histone
+  peptide catalogs and layouts
+- **Three-layer data model**: hDP (histone-derived peptides) → hPF (peptideforms) → hPTM (site-level summaries)
+- **QC utilities** for quality control and provenance tracking
+
+### Setup
+
+```bash
+git clone https://github.com/biopelayo/epiprofile-plants.git
+```
+
+### Configuration
+
+The `paras.txt` file (in the epiprofile-plants directory) tells the MATLAB
+tool where to find the `.ms1`/`.ms2` files:
 
 ```ini
 [EpiProfile]
@@ -202,77 +269,15 @@ nsource=1      ; LFQ
 nsubtype=0     ; light only
 ```
 
-### Parameters explained
-
-| Key | Value | Meaning |
-|-----|-------|---------|
-| `raw_path` | Full path to `RawData/` folder | Where EpiProfile looks for `.ms1`, `.ms2`, and `.raw` files |
-| `norganism` | `1` | Organism code (1=Human is used as closest proxy for Arabidopsis) |
-| `nsource` | `1` | Quantification mode (1=LFQ, label-free quantification) |
-| `nsubtype` | `0` | Labeling subtype (0=light only) |
-
 > **Important**: EpiProfile looks for `.ms1` and `.ms2` files in the **parent
 > directory** of `raw_path`, i.e., at the same level as `RawData/`. This is why
 > the batch layout puts `MS1/`, `MS2/`, and `RawData/` as siblings.
 
----
+### Run
 
-## Step 6: Run EpiProfile in MATLAB
-
-1. Open MATLAB.
-2. Navigate to the EpiProfile directory:
-   ```matlab
-   cd('D:\EpiProfile2.1_1Basic_Running_version')
-   ```
-3. Run the main script:
-   ```matlab
-   EpiProfile
-   ```
-4. EpiProfile reads `paras.txt`, finds the files, and produces area matrices
-   for each histone peptide + PTM combination.
-
-### Running multiple batches
-
-To process all condition groups, update `paras.txt` → run EpiProfile → save
-output → repeat. For systematic processing, a MATLAB loop can iterate over
-batch folders:
-
-```matlab
-batches = dir('D:\epiprofile_data\organized\PXD046034\batches\*');
-for i = 1:length(batches)
-    if batches(i).isdir && ~startsWith(batches(i).name, '.')
-        % Update paras.txt raw_path
-        fid = fopen('paras.txt', 'w');
-        fprintf(fid, '[EpiProfile]\n');
-        fprintf(fid, 'raw_path=%s\\RawData\n', ...
-            fullfile(batches(i).folder, batches(i).name));
-        fprintf(fid, 'norganism=1\n');
-        fprintf(fid, 'nsource=1\n');
-        fprintf(fid, 'nsubtype=0\n');
-        fclose(fid);
-
-        % Run EpiProfile
-        EpiProfile;
-
-        % Move output to batch-specific folder
-        % (adjust based on EpiProfile output location)
-    end
-end
-```
-
----
-
-## Step 7: Collect and analyze results
-
-EpiProfile outputs area matrices (CSV/Excel) with columns for each sample and
-rows for each histone peptide + PTM combination. Downstream analysis typically
-includes:
-
-- Normalization (relative abundance per peptide)
-- Statistical comparison between conditions (e.g., wt vs. fas)
-- Visualization (heatmaps, bar charts)
-- Integration with the custom MATLAB code at
-  [`epiprofile-plants`](https://github.com/biopelayo/epiprofile-plants)
+See the [epiprofile-plants README](https://github.com/biopelayo/epiprofile-plants)
+for full instructions on running the MATLAB analysis, selecting species bundles,
+and interpreting results.
 
 ---
 
@@ -283,8 +288,8 @@ includes:
 | Download | `python workflow/scripts/pxd_triada_pipeline.py PXD046034 --out D:/epiprofile_data/PXD046034 --protocol ftp --download-only` |
 | Convert | `python workflow/scripts/convert_and_extract.py --pxd PXD046034` |
 | Verify | `dir /B D:\epiprofile_data\PXD046034\MS1_MS2\*.ms1 \| find /c /v ""` |
-| Configure | Edit `paras.txt` with `raw_path` pointing to batch `RawData/` |
-| Run | `EpiProfile` in MATLAB |
+| Snakemake (all-in-one) | `snakemake -s workflow/Snakefile --configfile config/config_pxd046034.yml` |
+| Quantify | Use [epiprofile-plants](https://github.com/biopelayo/epiprofile-plants) in MATLAB |
 
 ---
 

@@ -13,8 +13,12 @@ rule all:
     input:
         # 1. Download report
         os.path.join(config["base_dir"], "download_report.json"),
-        # 2. Conversion manifest (MS1/MS2 triada)
+        # 2. Conversion manifest (raw → mzML)
         os.path.join(config["base_dir"], "conversion_manifest.json"),
+        # 3. ms1/ms2 text extraction (mzML → .ms1 + .ms2 via xtract_xml)
+        directory(os.path.join(config["base_dir"], config.get("ms1_dir", "MS1"))),
+        directory(os.path.join(config["base_dir"], config.get("ms2_dir", "MS2"))),
+        directory(os.path.join(config["base_dir"], "RawData")),
 
 
 # Keep a simple smoke-test rule for CI / first-run validation

@@ -1,5 +1,14 @@
 # rules/mzml.smk
-# Convert vendor RAW → mzML (MS1-only + MS2-only) using MSConvert.
+# Convert vendor RAW → centroided mzML using MSConvert.
+#
+# Produces full centroided mzML (MS1+MS2 combined, no level split).
+# The mzML files are then passed to ms1_ms2.smk for text extraction
+# via xtract_xml.exe.
+#
+# NOTE: This rule calls pxd_triada_pipeline.py --convert-only which
+# historically created a triada/ layout (ms1/ms2 mzML split by level).
+# For the current xtract_xml pipeline, use convert_and_extract.py
+# instead (see docs/TUTORIAL.md for the recommended workflow).
 #
 # Expects these config keys:
 #   base_dir, project_id,
