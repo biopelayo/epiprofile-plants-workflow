@@ -24,6 +24,9 @@ msconvert_centroid: "vendor"
 msconvert_gzip: false
 msconvert_bit_depth: 64
 
+# --- xtract_xml settings (mzML -> .ms1 + .ms2 text) ---
+xtract_xml_path: "D:/EpiProfile2.1_1Basic_Running_version/xtract_xml.exe"
+
 # Species / histone layout
 species: "Arabidopsis thaliana"
 epiprofile_layout: "layouts/AT_histone_layout.txt"

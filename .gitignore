@@ -17,6 +17,10 @@ build/
 *.mzML
 *.wiff
 *.wiff.scan
+*.ms1
+*.ms2
+*.rawInfo
+*.xtract
 epiprofile_data/
 
 # OS artifacts

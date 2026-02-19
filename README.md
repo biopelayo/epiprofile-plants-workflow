@@ -1,180 +1,159 @@
 # EpiProfile_PLANTS workflow
 
-Reproducible workflow from **WIFF/RAW → mzML → MS1/MS2 → EpiProfile_PLANTS → hPTM matrices**  
-for plant histone proteomics.
+Reproducible pipeline for **Arabidopsis histone PTM quantification** from
+Thermo `.raw` files using EpiProfile 2.1.
 
-This repository complements the MATLAB code in  
-[`epiprofile-plants`](https://github.com/biopelayo/epiprofile-plants) by providing
-a Docker/Snakemake pipeline that:
+Part of a PhD thesis on **H3K79 in *Arabidopsis thaliana***.
 
-1. Organises **ProteomeXchange (PXD) datasets** on disk in a consistent way.
-2. Converts vendor files (e.g. SCIEX WIFF/WIFFSCAN) to `mzML`.
-3. Extracts **MS1/MS2** text files required by EpiProfile 2.0 / EpiProfile_PLANTS.
-4. Runs EpiProfile_PLANTS with species-specific layouts (Arabidopsis, Marchantia, Chlamydomonas).
-5. Produces **analysis-ready matrices** of histone PTM areas for downstream R/Python analysis.
-
-> Status: work in progress as part of a PhD thesis on **H3K79 in Arabidopsis**.
-> The goal is a fully reproducible, FAIR-compliant workflow that can be reused on public datasets
-> and new plant experiments.
+Companion to the MATLAB code at
+[`epiprofile-plants`](https://github.com/biopelayo/epiprofile-plants).
 
 ---
 
-## 1. Scope and design
+## Pipeline overview
 
-The workflow is intentionally:
+```
+.raw (Thermo)
+  |  MSConvert (vendor centroiding)
+  v
+.mzML (centroided, full MS1+MS2)
+  |  xtract_xml.exe (pXtract)
+  v
+.ms1 + .ms2 (text format)
+  |  organize into MS1/ MS2/ RawData/
+  v
+EpiProfile.m (MATLAB)  -->  hPTM area matrices
+```
 
-- **Dataset-agnostic** – it should work with any compatible PXD (or local dataset)
-  once paths and layout files are specified.
-- **Tool-agnostic on the MS side** – conversion and extraction are wrapped in Docker,
-  so the host system only needs Docker (or Apptainer/Singularity).
-- **Modular** – each major step (download, mzML, MS1/MS2, EpiProfile_PLANTS, post-processing)
-  is a separate Snakemake rule.
-- **Traceable** – every step leaves logs and small manifest files for later audit.
+### Steps
 
-Typical use cases:
+1. **Download** raw files from PRIDE via `pridepy` (FTP).
+2. **MSConvert**: `.raw` to centroided `.mzML`
+   (filters: `peakPicking vendor msLevel=1-`, `metadataFixer`).
+3. **xtract_xml.exe**: `.mzML` to `.ms1` + `.HCD.FTMS.ms2`.
+4. **Rename**: `.HCD.FTMS.ms2` to `.ms2`.
+5. **Organize**: `MS1/`, `MS2/`, `RawData/` (empty `.raw` placeholders).
+6. **Batch** (optional): group by condition into `batches/{group}/`.
+7. **EpiProfile.m**: run from MATLAB on the `RawData/` path.
 
-- Reanalysis of public datasets such as **PXD010102** and **PXD046034**.
-- Internal datasets for **Arabidopsis rosette ontogeny** (BGSR; YNG/BOT/FLOR/SEN).
-- Small demonstration sets such as **ONTOGENY_DEMO** (BOT_8, FLOR_3 inj1/inj2, FLOR_6, SEN_6).
-
----
-
-## 2. High-level workflow
-
-Conceptually the pipeline follows these steps:
-
-1. **Dataset preparation**
-   - (Optional) Download from PRIDE / ProteomeXchange using R (e.g. `rpridemetadb`) or Python.
-   - Organise files into a standard directory tree:
-     `raw_wiff/`, `mzML/`, `MS1_MS2/`, `EpiProfile_output/`, `phenodata/`, etc.
-
-2. **Vendor → mzML**
-   - Use **ProteoWizard `msconvert`** in a Docker container.
-   - Apply standard options for histone proteomics, e.g.:
-     - 64-bit
-     - `zlib` compression
-     - vendor peak picking
-   - Output to `mzML/` (profile and/or centroid, depending on the project).
-
-3. **mzML → MS1/MS2**
-   - Use `xtract_xml` / `Raw2MS`-like tools to generate:
-     - `<sample>.MS1`
-     - `<sample>.MS2`
-   - Save to `MS1_MS2/MS1/` and `MS1_MS2/MS2/`.
-
-4. **EpiProfile_PLANTS quantification**
-   - Select the appropriate **species layout** and `init_histone0_*` file
-     (e.g. Arabidopsis, Marchantia, Chlamydomonas, or “core” panel).
-   - Run EpiProfile_PLANTS to obtain histone peptide/PTM areas per sample.
-   - Store outputs under `EpiProfile_output/`.
-
-5. **Post-processing**
-   - Collect EpiProfile output files into:
-     - a **long table** (one row per peptide/PTM/sample),
-     - and **wide matrices** (peptides/PTMs × samples).
-   - Generate small QC summaries to check sample completeness, NA/zero structure, etc.
-   - These matrices are then used in R/Python (e.g. for qsmooth, ComBat, limma).
-
-Snakemake orchestrates these steps, so a single command can rebuild the entire pipeline.
+See [docs/TUTORIAL.md](docs/TUTORIAL.md) for a full step-by-step guide.
 
 ---
 
-## 3. Repository structure (planned)
+## Datasets processed
 
-The folder layout of this repository is designed to be explicit and readable:
+| PXD | Description | Instrument | Files | Raw size |
+|-----|-------------|------------|-------|----------|
+| PXD046034 | Histone chaperone mutants (fas/nap) | Orbitrap Fusion Lumos | 48 | 32 GB |
+| PXD046788 | HDAC inhibitors (TSA/NaB) in calli | Orbitrap Fusion Lumos | 58 | 48 GB |
+| PXD014739 | Histone acetylation profiling | LTQ Orbitrap Elite | 114 | 43 GB |
+
+**Total**: 220 raw files, 123 GB. All downloaded, converted, and extracted.
+
+---
+
+## Repository structure
 
 ```text
 epiprofile-plants-workflow/
-├── workflow/
-│   ├── Snakefile              # main Snakemake entry point
-│   ├── rules/                 # modular rule files
-│   │   ├── download.smk       # (optional) PRIDE / PXD download logic
-│   │   ├── mzml.smk           # WIFF/RAW → mzML via Docker
-│   │   ├── ms1_ms2.smk        # mzML → MS1/MS2
-│   │   ├── epiprofile.smk     # EpiProfile_PLANTS calls
-│   │   └── postprocess.smk    # matrices & QC summaries
-│   └── scripts/               # helper scripts (Python/R/bash)
-│
-├── config/
-│   ├── config_pxd010102.yml   # example config for PXD010102
-│   ├── config_pxd046034.yml   # example config for PXD046034
-│   └── config_ontogeny_demo.yml
-│
-├── envs/                      # Conda environment definitions
-│   ├── snakemake.yml
-│   ├── msconvert.yml
-│   └── r_postprocess.yml
-│
-├── docker/                    # Dockerfiles for vendor tools and helpers
-│   └── msconvert.Dockerfile
-│
-├── example-projects/
-│   ├── ONTOGENY_DEMO/         # minimal BOT/FLOR/SEN dataset
-│   └── PXD046034_demo/        # small subset of PXD046034
-│
-└── docs/
-    ├── 01_overview.md
-    ├── 02_setup.md
-    └── 03_examples.md
+  workflow/
+    Snakefile                      # main entry point
+    rules/
+      download.smk                 # PRIDE download via pridepy
+      mzml.smk                     # raw -> mzML via MSConvert
+      ms1_ms2.smk                  # mzML -> .ms1/.ms2 via xtract_xml
+    scripts/
+      pxd_triada_pipeline.py       # download + MSConvert (standalone)
+      convert_and_extract.py       # raw -> mzML -> xtract_xml -> organized
+  config/
+    config_pxd046034.yml
+    config_pxd046788.yml
+    config_pxd014739.yml
+    config_ontogeny_demo.yml
+  envs/
+    snakemake.yml
+  docs/
+    PIPELINE_RUN_LOG.md            # detailed execution log
+    TUTORIAL.md                    # step-by-step guide
+    ONTOGENY_DEMO.md
+  deploy_server.sh                 # Linux server deployment
+  README.md
+  LICENSE
 ```
-## 4. Requirements
-
-To run the full WIFF → mzML → MS1/MS2 → EpiProfile_PLANTS → R workflow you will typically need:
-
-- **Operating system**
-  - Linux or **WSL2** (recommended for Snakemake + Docker).
-- **Environment management**
-  - `conda` / `mamba` to manage environments.
-- **Workflow engine**
-  - `snakemake` (e.g. `snakemake >= 7`).
-- **Container runtime**
-  - Docker (or Apptainer/Singularity) for:
-    - ProteoWizard `msconvert`,
-    - any other vendor-dependent tools.
-- **EpiProfile layer**
-  - Access to the **EpiProfile_PLANTS** code (MATLAB).
-  - **MATLAB** or **MATLAB Runtime** installed and accessible.
-- **Post-processing / statistics**
-  - **R** with packages for data wrangling and QC (e.g. `data.table`, `tidyverse`).
-  - Optionally, **rmarkdown / Quarto** for producing reports and notebooks.
 
 ---
 
-## 5. Configuration model
+## Requirements
 
-Each project (PRIDE PXD dataset or internal dataset) is configured via a YAML file.  
-A typical example (for PXD046034) looks like:
+- **Windows 10/11** (MSConvert and xtract_xml are Windows binaries)
+- **Python 3.10+** with `pridepy`, `ppx` (`pip install pridepy ppx`)
+- **MSConvert** (ProteoWizard, via OpenMS or standalone install)
+- **xtract_xml.exe** (bundled with EpiProfile 2.1)
+- **MATLAB** with EpiProfile.m
+- ~200 GB free disk space for all 3 datasets
 
-```yaml
-# config/config_pxd046034.yml
+For Linux deployment: MSConvert runs via Docker
+(`chambm/pwiz-skyline-i-agree-to-the-vendor-licenses`).
+See `deploy_server.sh`.
 
-project_id: "PXD046034"
-description: "Reanalysis of PXD046034 with EpiProfile_PLANTS"
+---
 
-# Root paths
-base_dir: "E:/EpiProfile_PLANTS_PXD046034"
-raw_dir:  "raw_wiff"
-mzml_dir: "mzML"
-ms1_dir:  "MS1_MS2/MS1"
-ms2_dir:  "MS1_MS2/MS2"
+## Quick start
 
-# Conversion settings
-msconvert_container: "biopelayo/msconvert:latest"
-msconvert_profile: true
-msconvert_centroid: true
+```bash
+# 1. Download a dataset from PRIDE
+python workflow/scripts/pxd_triada_pipeline.py PXD046034 \
+    --out D:/epiprofile_data/PXD046034 --protocol ftp --download-only
 
-# EpiProfile_PLANTS settings
-epiprofile_root: "E:/EpiProfile_20_AT/src"
-species_layout: "AT"          # AT / MP / CR / core
-layout_file: "layouts/AT_H3H4_layout.txt"
-init_histone0: "init_histone0_AT.m"
+# 2. Convert raw -> mzML -> .ms1 + .ms2
+python workflow/scripts/convert_and_extract.py --pxd PXD046034
 
-# Phenodata / metadata
-phenodata_file: "phenodata/phenodata_pxd046034.tsv"
-sample_column: "sample_id"
+# 3. Open MATLAB, configure paras.txt, run EpiProfile.m
+```
 
-# Post-processing
-output_dir: "EpiProfile_output"
+---
 
+## Data organization
 
-    
+After running the pipeline, each dataset has:
+
+```
+D:/epiprofile_data/organized/PXD046034/
+  MS1/        48 x sample.ms1
+  MS2/        48 x sample.ms2
+  RawData/    48 x sample.raw (empty)
+  batches/
+    3905_wt/      MS1/ MS2/ RawData/  (6 samples)
+    3905_fas/     MS1/ MS2/ RawData/  (6 samples)
+    4105_nap/     MS1/ MS2/ RawData/  (6 samples)
+    ...
+```
+
+Each batch folder has matching `sample.ms1` + `sample.ms2` + `sample.raw` triads.
+Point MATLAB EpiProfile at any `batches/{group}/RawData/` folder.
+
+---
+
+## EpiProfile configuration (paras.txt)
+
+```ini
+[EpiProfile]
+raw_path=D:\epiprofile_data\organized\PXD046034\batches\3905_wt\RawData
+norganism=1    ; 1=Human (closest available for Arabidopsis)
+nsource=1      ; LFQ
+nsubtype=0     ; light only
+```
+
+---
+
+## Known issues
+
+- **MSConvert can hang** on large Orbitrap files (zero CPU). Kill process and re-convert.
+- **pridepy** may create 0-byte placeholder files. Delete and re-download.
+- **xtract_xml.exe** generates `sample.HCD.FTMS.ms2` naming; `convert_and_extract.py` handles the rename automatically.
+
+---
+
+## License
+
+GNU General Public License v2.0

@@ -310,16 +310,166 @@ nohup bash run_all_pxd.sh /home/pelamovic/epiprofile_plants > pipeline.log 2>&1 
 
 ---
 
+## 9. xtract_xml Conversion (replacing triada mzML split)
+
+### 9.1 Why the change
+
+The original "triada" approach split each `.raw` into two mzML files filtered by
+MS level (`ms1.mzML` and `ms2.mzML`). However, **EpiProfile 2.1 does not read
+mzML**. It expects `.ms1` and `.ms2` **text** files produced by the `xtract_xml.exe`
+tool (pXtract, bundled with pFind/EpiProfile). The correct pipeline is:
+
+```
+.raw → MSConvert (full centroided mzML) → xtract_xml.exe → .ms1 + .ms2 (text)
+```
+
+The old triada ms1/ms2 mzML directories (76 GB total) were deleted to free disk
+space before running the new conversion.
+
+### 9.2 Tool and command
+
+```
+D:\EpiProfile2.1_1Basic_Running_version\xtract_xml.exe
+```
+
+`xtract_xml.exe` must be run from its parent directory (needs Xcalibur DLLs).
+Command per file:
+
+```bash
+xtract_xml.exe -ms -o <output_dir> <sample.mzML>
+```
+
+Produces: `sample.ms1`, `sample.HCD.FTMS.ms2`, `sample.rawInfo`, `sample.xtract`.
+The `.HCD.FTMS.ms2` must be renamed to `.ms2` for EpiProfile.
+
+### 9.3 Conversion script
+
+`workflow/scripts/convert_and_extract.py` automates the full pipeline per PXD:
+1. MSConvert: `.raw` → full centroided `.mzML` (vendor peakPicking, metadataFixer)
+2. xtract_xml: `.mzML` → `.ms1` + `.HCD.FTMS.ms2`
+3. Rename `.HCD.FTMS.ms2` → `.ms2`
+4. Create empty `.raw` placeholders in `RawData/`
+5. Delete intermediate `.mzML` to save disk space
+6. Clean up `.rawInfo` and `.xtract` temp files
+
+### 9.4 Results
+
+| PXD | Files | MS1 size | MS2 size | Time | Errors |
+|-----|-------|----------|----------|------|--------|
+| PXD046034 | 48/48 | 3.4 GB | 6.4 GB | ~30 min | 0 |
+| PXD046788 | 58/58 | 8.2 GB | 6.2 GB | ~105 min | 0 |
+| PXD014739 | 114/114 | 13.5 GB | 2.0 GB | ~45 min | 0 |
+| **Total** | **220/220** | **25.1 GB** | **14.6 GB** | **~3 h** | **0** |
+
+All 220 files converted successfully with zero errors. Intermediate mzML was
+deleted after each PXD to stay within D: drive capacity.
+
+**Note:** PXD046788 `TSA_root1.raw` (which hung MSConvert in the old triada run)
+converted normally this time (657 MB mzML, 99 s).
+
+---
+
+## 10. Batch Organization by Condition
+
+### 10.1 Directory layout
+
+Each PXD is organized into a standard EpiProfile-compatible structure with
+per-condition batch folders:
+
+```
+D:\epiprofile_data\organized\{PXD}\
+  MS1/          # all .ms1 files (hard links)
+  MS2/          # all .ms2 files (hard links)
+  RawData/      # all empty .raw placeholders (hard links)
+  batches/
+    {condition}/
+      MS1/      # subset .ms1
+      MS2/      # subset .ms2
+      RawData/  # subset .raw (empty)
+```
+
+Hard links (Windows `os.link()`) are used instead of copies — **zero extra disk
+space**. Each batch folder contains matching triads: `sample.ms1` + `sample.ms2`
++ `sample.raw`.
+
+### 10.2 Batch groups
+
+**PXD046034** — 8 batches (48 files):
+
+| Batch | Samples |
+|-------|---------|
+| 3905_wt | 6 |
+| 3905_fas | 6 |
+| 3905_wt_Z | 6 |
+| 3905_fas_Z | 6 |
+| 4105_wt | 6 |
+| 4105_fas | 6 |
+| 4105_nap | 6 |
+| 4105_fasnap | 6 |
+
+**PXD046788** — 10 batches (58 files):
+
+| Batch | Samples |
+|-------|---------|
+| Control_root | 6 |
+| Control_calli | 6 |
+| TSA_root | 6 |
+| TSA_calli | 5 |
+| NaB_root | 6 |
+| NaB_calli | 6 |
+| SAHA_root | 5 |
+| SAHA_calli | 6 |
+| Nicotinamide_root | 6 |
+| Nicotinamide_calli | 6 |
+
+**PXD014739** — 13 batches (114 files):
+
+| Batch | Samples |
+|-------|---------|
+| 12d_light | 9 |
+| 12d_dark | 9 |
+| 3w_LD | 9 |
+| 3w_SD | 9 |
+| 5w_LD | 9 |
+| 5w_SD | 9 |
+| 7w_LD | 9 |
+| 7w_SD | 9 |
+| bolting | 9 |
+| flowering | 9 |
+| silique_green | 6 |
+| silique_yellow | 9 |
+| senescing | 9 |
+
+**Total: 31 batches across 3 PXDs, 220 files.**
+
+### 10.3 Running EpiProfile on a batch
+
+Point MATLAB EpiProfile at any batch's `RawData/` path via `paras.txt`:
+
+```ini
+[EpiProfile]
+raw_path=D:\epiprofile_data\organized\PXD046034\batches\3905_wt\RawData
+norganism=1    ; 1=Human (closest available for Arabidopsis)
+nsource=1      ; LFQ
+nsubtype=0     ; light only
+```
+
+---
+
 ## Disk Usage Summary
 
-| Dataset | Raw | MS1 mzML | MS2 mzML | Total |
-|---------|-----|----------|----------|-------|
-| PXD046034 | 32 GB | 3.7 GB | 11.5 GB | ~47 GB |
-| PXD046788 | 48 GB | 8.5 GB | 29.4 GB | ~86 GB |
-| PXD014739 | 43 GB | 14.8 GB | 8.3 GB | ~66 GB |
-| **Total** | **123 GB** | **27 GB** | **49.2 GB** | **~199 GB** |
+| Dataset | Raw | .ms1 (text) | .ms2 (text) | Total |
+|---------|-----|-------------|-------------|-------|
+| PXD046034 | 32 GB | 3.4 GB | 6.4 GB | ~42 GB |
+| PXD046788 | 48 GB | 8.2 GB | 6.2 GB | ~62 GB |
+| PXD014739 | 43 GB | 13.5 GB | 2.0 GB | ~59 GB |
+| **Total** | **123 GB** | **25.1 GB** | **14.6 GB** | **~163 GB** |
 
-D: drive final: 331 GB used, 58 GB free.
+Organized directory (hard links): ~0 GB extra.
+
+Old triada mzML (76 GB) deleted. Intermediate full mzML deleted after each PXD.
+
+D: drive final: ~314 GB used, ~105 GB free.
 
 ---
 
@@ -332,11 +482,12 @@ epiprofile-plants-workflow-main/
     rules/
       download.smk                     # Snakemake rule for download step
       mzml.smk                         # Snakemake rule for MSConvert step
-      ms1_ms2.smk                      # Placeholder for text extraction
+      ms1_ms2.smk                      # xtract_xml extraction rule
     scripts/
-      pxd_triada_pipeline.py           # Main pipeline script (all bugs fixed)
+      pxd_triada_pipeline.py           # Download + MSConvert (standalone)
+      convert_and_extract.py           # raw -> mzML -> xtract_xml -> organized
   config/
-    config_ontogeny_demo.yml           # Updated with msconvert/download fields
+    config_ontogeny_demo.yml           # Ontogeny demo config
     config_pxd046034.yml               # PXD046034 config
     config_pxd046788.yml               # PXD046788 config
     config_pxd014739.yml               # PXD014739 config
@@ -345,6 +496,7 @@ epiprofile-plants-workflow-main/
   docs/
     ONTOGENY_DEMO.md
     PIPELINE_RUN_LOG.md                # THIS FILE
+    TUTORIAL.md                        # Step-by-step guide
   deploy_server.sh                     # Linux server deployment script
   README.md
   LICENSE
@@ -355,29 +507,21 @@ epiprofile-plants-workflow-main/
 D:/epiprofile_data/
   PXD046034/
     raw/                  # 48 .raw files (32 GB)
-    triada/
-      ms1/                # 48 .ms1.mzML (3.7 GB)
-      ms2/                # 48 .ms2.mzML (11.5 GB)
-      raw_empty/          # 48 placeholders
-    logs/                 # 96 msconvert logs + pridepy logs
-    download_report.json
-    conversion_manifest.json
+    MS1_MS2/              # 48 .ms1 + 48 .ms2 text files (9.8 GB)
+    RawData/              # 48 empty .raw placeholders
+    logs/
   PXD046788/
     raw/                  # 58 .raw files (48 GB)
-    triada/
-      ms1/                # 58 .ms1.mzML (8.5 GB)
-      ms2/                # 58 .ms2.mzML (29.4 GB)
-      raw_empty/          # 58 placeholders
-    logs/                 # 116 msconvert logs + pridepy logs
-    download_report.json
-    conversion_manifest.json
+    MS1_MS2/              # 58 .ms1 + 58 .ms2 text files (14.4 GB)
+    RawData/              # 58 empty .raw placeholders
+    logs/
   PXD014739/
     raw/                  # 114 .raw files (43 GB)
-    triada/
-      ms1/                # 114 .ms1.mzML (14.8 GB)
-      ms2/                # 114 .ms2.mzML (8.3 GB)
-      raw_empty/          # 114 placeholders
-    logs/                 # 228 msconvert logs + pridepy logs
-    download_report.json
-    conversion_manifest.json
+    MS1_MS2/              # 114 .ms1 + 114 .ms2 text files (15.5 GB)
+    RawData/              # 114 empty .raw placeholders
+    logs/
+  organized/
+    PXD046034/            # MS1/ MS2/ RawData/ batches/{8 groups}/
+    PXD046788/            # MS1/ MS2/ RawData/ batches/{10 groups}/
+    PXD014739/            # MS1/ MS2/ RawData/ batches/{13 groups}/
 ```

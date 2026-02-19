@@ -25,6 +25,9 @@ msconvert_gzip: false
 msconvert_bit_depth: 64           # 32 | 64
 msconvert_profile: true
 
+# --- xtract_xml settings (mzML -> .ms1 + .ms2 text) ---
+xtract_xml_path: "xtract_xml.exe"     # path to xtract_xml binary
+
 # Species / histone layout configuration
 species: "Arabidopsis thaliana"
 epiprofile_layout: "layouts/AT_histone_layout_ontogeny_demo.txt"
