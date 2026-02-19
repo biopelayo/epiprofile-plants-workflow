@@ -1,0 +1,39 @@
+# Configuration for PXD046034
+# "Adaptive epigenetic changes in histone variants and modifications
+#  rescue the fitness of Arabidopsis plants with dysfunctional histone chaperones"
+# Instrument: Orbitrap Fusion Lumos | Format: Thermo .raw | ~48 files, ~21 GB
+
+project_id: "PXD046034"
+description: "Reanalysis of PXD046034 — Arabidopsis histone chaperone mutants"
+
+# Root directories — all output goes to D: drive
+base_dir: "D:/epiprofile_data/PXD046034"
+raw_dir: "raw"
+mzml_dir: "mzML"
+ms1_dir: "MS1"
+ms2_dir: "MS2"
+epiprofile_output_dir: "EpiProfile_output"
+
+# --- Download settings ---
+download_protocol: "ftp"
+download_checksum: true
+
+# --- MSConvert settings ---
+msconvert_path: "D:/MS/share/OpenMS/THIRDPARTY/pwiz-bin/msconvert.exe"
+msconvert_centroid: "vendor"
+msconvert_gzip: false
+msconvert_bit_depth: 64
+
+# Species / histone layout
+species: "Arabidopsis thaliana"
+epiprofile_layout: "layouts/AT_histone_layout.txt"
+init_histone_catalog: "catalogs/init_histone0_AT.m"
+
+# Phenodata
+phenodata_file: "phenodata/phenodata_pxd046034.tsv"
+
+# Pipeline flags
+convert_wiff_to_mzml: true
+extract_ms1_ms2: true
+run_epiprofile: true
+postprocess_in_R: true

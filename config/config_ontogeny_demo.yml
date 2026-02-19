@@ -2,16 +2,28 @@
 # This model should be re-usable for other PXD or internal projects by
 # just changing paths and metadata.
 
-project_id: "ONTONOGENY_DEMO"
+project_id: "ONTOGENY_DEMO"
 description: "Arabidopsis rosette ontogeny demo (BOT/FLOR/SEN) for EpiProfile_PLANTS"
 
 # Root directories (relative to this repo or absolute paths)
-base_dir: "/path/to/ONTONOGENY_DEMO"   # TODO: adjust locally
+base_dir: "/path/to/ONTOGENY_DEMO"   # TODO: adjust locally
 raw_dir: "raw_wiff"
 mzml_dir: "mzML"
 ms1_dir: "MS1"
 ms2_dir: "MS2"
 epiprofile_output_dir: "EpiProfile_output"
+
+# --- Download settings ---
+download_protocol: "ftp"          # ftp | aspera | globus | s3
+download_checksum: true
+
+# --- MSConvert settings ---
+msconvert_path: "msconvert"       # path to msconvert binary or just "msconvert"
+msconvert_container: ""           # e.g. "biopelayo/msconvert:latest" (for Docker)
+msconvert_centroid: "none"        # none | vendor | cwt
+msconvert_gzip: false
+msconvert_bit_depth: 64           # 32 | 64
+msconvert_profile: true
 
 # Species / histone layout configuration
 species: "Arabidopsis thaliana"
@@ -21,7 +33,7 @@ init_histone_catalog: "catalogs/init_histone0_AT.m"
 # Phenodata / metadata files
 phenodata_file: "phenodata/phenodata_ontogeny_demo.tsv"
 
-# Flags (placeholders for future use)
+# Pipeline stage flags
 convert_wiff_to_mzml: true
 extract_ms1_ms2: true
 run_epiprofile: true

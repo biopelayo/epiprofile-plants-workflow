@@ -1,30 +1,28 @@
 # Snakefile for the EpiProfile_PLANTS workflow
-# Minimal placeholder so that the repo already "runs" with Snakemake.
-# Later we will replace this with the full WIFF -> mzML -> MS1/MS2 -> EpiProfile_PLANTS pipeline.
-
-import yaml
+# Main entry point — includes modular rule files for each pipeline stage.
 
 configfile: "config/config_ontogeny_demo.yml"
 
-# Load the configuration
-with open(configfile, "r") as fh:
-    cfg = yaml.safe_load(fh)
+# --- Include modular rules ------------------------------------------------
+include: "rules/download.smk"
+include: "rules/mzml.smk"
+include: "rules/ms1_ms2.smk"
 
-# Define a very simple rule that just writes a text file in docs/
-# to confirm that Snakemake + config + env work.
+# --- Convenience targets ---------------------------------------------------
 rule all:
     input:
-        "docs/ONTNOGENY_DEMO_OK.txt"
+        # 1. Download report
+        os.path.join(config["base_dir"], "download_report.json"),
+        # 2. Conversion manifest (MS1/MS2 triada)
+        os.path.join(config["base_dir"], "conversion_manifest.json"),
 
+
+# Keep a simple smoke-test rule for CI / first-run validation
 rule demo_touch:
     output:
-        "docs/ONTNOGENY_DEMO_OK.txt"
-    shell:
-        """
-        echo "EpiProfile_PLANTS workflow demo run" > {output}
-        echo "Project ID: {project}" >> {output}
-        echo "Base dir: {base_dir}" >> {output}
-        """.format(
-            project=cfg.get("project_id", "UNKNOWN"),
-            base_dir=cfg.get("base_dir", "NOT_DEFINED")
-        )
+        "docs/ONTOGENY_DEMO_OK.txt"
+    run:
+        with open(output[0], "w") as fh:
+            fh.write(f"EpiProfile_PLANTS workflow demo run\n")
+            fh.write(f"Project ID: {config.get('project_id', 'UNKNOWN')}\n")
+            fh.write(f"Base dir:   {config.get('base_dir', 'NOT_DEFINED')}\n")
