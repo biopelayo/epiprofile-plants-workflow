@@ -188,14 +188,32 @@ D:/epiprofile_data/organized/PXD046034/
 
 After this workflow produces `.ms1` + `.ms2` files, use
 [**epiprofile-plants**](https://github.com/biopelayo/epiprofile-plants) to
-quantify histone PTMs:
+quantify histone PTMs in MATLAB.
 
-1. Clone: `git clone https://github.com/biopelayo/epiprofile-plants.git`
-2. Point MATLAB to a batch's `RawData/` path via `paras.txt`.
-3. Run the MATLAB analysis to produce hPTM area matrices.
+### paras.txt configuration
+
+Edit `paras.txt` in the EpiProfile directory to point to your data:
+
+```matlab
+[EpiProfile]
+% the datapath of raw files
+raw_path=D:\epiprofile_data\PXD046788\MS1_MS2\RawData
+
+% 1: Arabidopsis thaliana (in epiprofile-plants)
+norganism=1
+
+% 1: histone_LFQ, 2: histone_SILAC, 3: histone_13CD3, 4: histone_15N
+nsource=1
+
+% if histone_LFQ: 0=light only
+nsubtype=0
+```
+
+Change `raw_path` to point to the `RawData/` folder of the PXD or batch you
+want to analyze. EpiProfile reads `.ms1`/`.ms2` from the parent of `raw_path`.
 
 See the [epiprofile-plants README](https://github.com/biopelayo/epiprofile-plants)
-for configuration details (species bundles, layouts, organism settings).
+for full setup, species bundles, and the hDP → hPF → hPTM output model.
 
 ---
 

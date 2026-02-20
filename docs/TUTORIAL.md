@@ -256,22 +256,58 @@ histone proteomics. It provides:
 git clone https://github.com/biopelayo/epiprofile-plants.git
 ```
 
-### Configuration
+### Configuration (paras.txt)
 
-The `paras.txt` file (in the epiprofile-plants directory) tells the MATLAB
-tool where to find the `.ms1`/`.ms2` files:
+The `paras.txt` file lives in the EpiProfile working directory. It tells the
+MATLAB tool where to find the `.ms1`/`.ms2` files and which analysis mode to use.
 
-```ini
+Comments use MATLAB syntax (`%`). Only `raw_path` changes between runs — point
+it to the `RawData/` folder of the batch or PXD you want to analyze.
+
+```matlab
 [EpiProfile]
-raw_path=D:\epiprofile_data\organized\PXD046034\batches\3905_wt\RawData
-norganism=1    ; 1=Human (closest available for Arabidopsis)
-nsource=1      ; LFQ
-nsubtype=0     ; light only
+% the datapath of raw files
+raw_path=D:\epiprofile_data\PXD046788\MS1_MS2\RawData
+
+% 1: Arabidopsis thaliana (in epiprofile-plants)
+norganism=1
+
+% 1: histone_LFQ, 2: histone_SILAC, 3: histone_13CD3, 4: histone_15N, 5: histone_13C2, 6: histone_D3
+nsource=1
+
+% if histone_LFQ: 0=light only, 1=heavy R no light, 2=heavy K+R no light
+nsubtype=0
 ```
 
-> **Important**: EpiProfile looks for `.ms1` and `.ms2` files in the **parent
-> directory** of `raw_path`, i.e., at the same level as `RawData/`. This is why
-> the batch layout puts `MS1/`, `MS2/`, and `RawData/` as siblings.
+#### Example raw_path values for each PXD
+
+| Dataset | raw_path (all files) | raw_path (batch example) |
+|---------|---------------------|--------------------------|
+| PXD046034 | `D:\epiprofile_data\PXD046034\MS1_MS2\RawData` | `D:\epiprofile_data\organized\PXD046034\batches\3905_wt\RawData` |
+| PXD046788 | `D:\epiprofile_data\PXD046788\MS1_MS2\RawData` | `D:\epiprofile_data\organized\PXD046788\batches\TSA_root\RawData` |
+| PXD014739 | `D:\epiprofile_data\PXD014739\MS1_MS2\RawData` | `D:\epiprofile_data\organized\PXD014739\batches\3w_LD\RawData` |
+
+> **Important**: EpiProfile looks for `.ms1` and `.ms2` files **in the parent
+> directory** of `raw_path` (i.e., alongside `RawData/`). This is why the
+> pipeline creates `MS1_MS2/RawData/` inside each PXD, and the organized batch
+> layout puts `MS1/`, `MS2/`, and `RawData/` as siblings.
+
+#### Parameters explained
+
+| Key | Value | Meaning |
+|-----|-------|---------|
+| `raw_path` | Path to `RawData/` folder | EpiProfile reads `.ms1`/`.ms2` from the parent, `.raw` from here |
+| `norganism` | `1` | Organism (1 = Arabidopsis in epiprofile-plants; 1 = Human in upstream EpiProfile 2.0) |
+| `nsource` | `1` | Quantification: 1=LFQ, 2=SILAC, 3=13CD3, 4=15N, 5=13C2, 6=D3 |
+| `nsubtype` | `0` | For LFQ: 0=light only, 1=heavy R, 2=heavy K+R |
+
+### Datasets at a glance
+
+| PXD | Organism | Source | Description | Conditions |
+|-----|----------|--------|-------------|------------|
+| PXD046034 | *A. thaliana* | LFQ | Histone chaperone mutants (fas1, nap1) | wt, fas, nap, fasnap, +/- zymosan |
+| PXD046788 | *A. thaliana* | LFQ | HDAC inhibitors in calli | Control, TSA, NaB, SAHA, Nicotinamide (root + calli) |
+| PXD014739 | *A. thaliana* | LFQ | Histone acetylation across development | 12d, 3w, 5w, 7w (LD/SD), bolting, flowering, silique, senescing |
 
 ### Run
 
