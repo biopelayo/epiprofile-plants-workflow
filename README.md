@@ -1,7 +1,9 @@
 # EpiProfile_PLANTS Workflow
 
-Snakemake-based preprocessing pipeline for **Arabidopsis histone PTM
+Preprocessing pipeline for **Arabidopsis histone PTM
 quantification** from Thermo `.raw` files deposited in PRIDE/ProteomeXchange.
+
+<img width="1024" height="572" alt="image" src="https://github.com/user-attachments/assets/b77a8d73-035a-4577-9b06-d253865d0782" />
 
 This repository handles **data acquisition and format conversion** — from raw
 mass-spectrometry files to the `.ms1`/`.ms2` text files that EpiProfile needs.
