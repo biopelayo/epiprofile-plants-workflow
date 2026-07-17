@@ -12,7 +12,7 @@ The actual histone PTM quantification is done by
 MATLAB extension of EpiProfile 2.0 with plant-specific histone peptide catalogs,
 species layouts (Arabidopsis, Marchantia, Chlamydomonas), and QC utilities.
 
-Part of a PhD thesis on **H3K79 in *Arabidopsis thaliana***.
+Part of a PhD thesis on **histone PTMs in *Arabidopsis thaliana***.
 
 ---
 
