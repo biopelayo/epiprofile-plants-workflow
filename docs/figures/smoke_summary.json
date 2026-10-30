@@ -1,0 +1,41 @@
+{
+  "timings_s": {
+    "convert_raw_to_mzml": 1.929,
+    "extract_ms1_ms2_text": 3.401,
+    "all": 0.912,
+    "rerun_noop": 0.926,
+    "standalone": 0.752
+  },
+  "inventory": {
+    "raw": {
+      "files": 12,
+      "bytes": 7105960
+    },
+    "mzML": {
+      "files": 12,
+      "bytes": 11814
+    },
+    "MS1": {
+      "files": 12,
+      "bytes": 720
+    },
+    "MS2": {
+      "files": 12,
+      "bytes": 720
+    },
+    "RawData": {
+      "files": 12,
+      "bytes": 0
+    },
+    "logs": {
+      "files": 14,
+      "bytes": 11841
+    },
+    "(ra\u00edz)": {
+      "files": 2,
+      "bytes": 7116
+    }
+  },
+  "samples": 12,
+  "complete_triads": 12
+}

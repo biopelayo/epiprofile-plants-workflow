@@ -1,19 +1,15 @@
 # rules/mzml.smk
-# Convert vendor RAW → centroided mzML using MSConvert.
+# Convert vendor RAW -> centroided mzML using MSConvert.
 #
-# Produces full centroided mzML (MS1+MS2 combined, no level split).
-# The mzML files are then passed to ms1_ms2.smk for text extraction
-# via xtract_xml.exe.
-#
-# NOTE: This rule calls pxd_triada_pipeline.py --convert-only which
-# historically created a triada/ layout (ms1/ms2 mzML split by level).
-# For the current xtract_xml pipeline, use convert_and_extract.py
-# instead (see docs/TUTORIAL.md for the recommended workflow).
+# Produces ONE full centroided mzML per raw file (MS1+MS2 combined, no level
+# split) in <base_dir>/<mzml_dir>/.  That is exactly what rules/ms1_ms2.smk
+# (xtract_xml.exe) reads next.
 #
 # Expects these config keys:
 #   base_dir, project_id,
+#   mzml_dir (optional, default "mzML"),
 #   msconvert_path (optional, default "msconvert"),
-#   msconvert_centroid (optional, default "none": none|vendor|cwt),
+#   msconvert_centroid (optional, default "vendor": none|vendor|cwt),
 #   msconvert_gzip (optional, default false),
 #   msconvert_bit_depth (optional, default 64)
 
@@ -22,10 +18,8 @@ import os
 
 rule convert_raw_to_mzml:
     """
-    Convert all downloaded RAW files into the triada layout:
-      triada/ms1/  (MS1-only mzML)
-      triada/ms2/  (MS2-only mzML)
-      triada/raw_empty/  (placeholders)
+    Convert all downloaded RAW files into full centroided mzML:
+      <base_dir>/<mzml_dir>/<sample>.mzML
 
     Requires download_report.json to exist (i.e. download must finish first).
     Produces conversion_manifest.json.
@@ -37,19 +31,23 @@ rule convert_raw_to_mzml:
     params:
         pxd=config.get("project_id", ""),
         out_root=config["base_dir"],
+        mzml_dir=config.get("mzml_dir", "mzML"),
         msconvert=config.get("msconvert_path", "msconvert"),
-        centroid=config.get("msconvert_centroid", "none"),
+        centroid=config.get("msconvert_centroid", "vendor"),
         gzip="--gzip" if config.get("msconvert_gzip", False) else "",
         bit_depth=config.get("msconvert_bit_depth", 64),
     log:
         os.path.join(config["base_dir"], "logs", "msconvert.log"),
     shell:
         r"""
+        mkdir -p "$(dirname {log})"
         python workflow/scripts/pxd_triada_pipeline.py \
             {params.pxd} \
-            --out {params.out_root} \
+            --out "{params.out_root}" \
             --convert-only \
-            --msconvert {params.msconvert} \
+            --layout full \
+            --mzml-dir "{params.mzml_dir}" \
+            --msconvert "{params.msconvert}" \
             --centroid {params.centroid} \
             --bit-depth {params.bit_depth} \
             {params.gzip} \

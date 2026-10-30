@@ -239,6 +239,7 @@ if [ "$MODE" = "convert" ] || [ "$MODE" = "both" ]; then
     echo "=== Converting $PXD ==="
     python3 "$SCRIPT" "$PXD" --out "$OUT" \
         --convert-only \
+        --layout full \
         --msconvert "$MSCONVERT" \
         --centroid vendor
 fi

@@ -62,7 +62,8 @@ rule extract_ms1_ms2_text:
         for i, mzml in enumerate(mzml_files, 1):
             stem = mzml.stem
             ms1_check = work_dir / f"{stem}.ms1"
-            if ms1_check.exists() and ms1_check.stat().st_size > 0:
+            ms1_done = ms1_out / f"{stem}.ms1"
+            if any(p.exists() and p.stat().st_size > 0 for p in (ms1_check, ms1_done)):
                 log_lines.append(f"[{i}/{len(mzml_files)}] {stem} - skip (exists)")
                 continue
 
@@ -112,3 +113,8 @@ rule extract_ms1_ms2_text:
             log_lines.append(f"Errors: {errors}")
         pathlib.Path(log[0]).parent.mkdir(parents=True, exist_ok=True)
         pathlib.Path(log[0]).write_text("\n".join(log_lines), encoding="utf-8")
+
+        if not mzml_files:
+            raise RuntimeError(f"No .mzML files found in {mzml_dir}")
+        if errors:
+            raise RuntimeError(f"xtract_xml failed for {len(errors)} file(s): {errors}")

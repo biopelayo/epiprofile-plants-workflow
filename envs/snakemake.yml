@@ -2,9 +2,11 @@ name: epiprofile-plants-workflow
 channels:
   - conda-forge
   - bioconda
-  - defaults
 dependencies:
-  - python=3.11
-  - snakemake>=7,<9
+  - python>=3.10
+  - snakemake>=7
   - pyyaml
-
+  - pip
+  - pip:
+      - pridepy
+      - ppx
