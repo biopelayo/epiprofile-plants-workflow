@@ -209,8 +209,11 @@ def process_pxd(pxd, base_dir, msconvert_path, xtract_path,
     removed = cleanup_extras(out_dir)
     print(f"  Cleaned up {removed} temp files (.rawInfo, .xtract)")
 
-    # Step 6: optionally delete mzML
-    if not keep_mzml:
+    # Step 6: optionally delete mzML (never when extraction had errors:
+    # the mzML is needed to retry without re-running MSConvert)
+    if errors:
+        print(f"\n[Step 5] Keeping mzML/ because {len(errors)} extraction(s) failed")
+    elif not keep_mzml:
         print(f"\n[Step 5] Deleting intermediate mzML/ to save space...")
         sz = sum(f.stat().st_size for f in mzml_dir.glob("*.mzML"))
         shutil.rmtree(mzml_dir)
@@ -230,6 +233,15 @@ def process_pxd(pxd, base_dir, msconvert_path, xtract_path,
     else:
         print(f"  [FAIL] MISMATCH: expected {n_raw} each")
     return ok
+
+
+def _resolve_tool(path_str):
+    """Return an absolute path for a tool. Bare names are looked up on PATH."""
+    p = pathlib.Path(path_str)
+    if p.exists():
+        return str(p.resolve())
+    found = shutil.which(path_str)
+    return found if found else path_str
 
 
 def main():
@@ -258,8 +270,10 @@ Examples:
     args = parser.parse_args()
 
     base_dir = pathlib.Path(args.base)
-    msconvert_path = args.msconvert
-    xtract_path = args.xtract
+    # Resolve tool paths to absolute: xtract_xml is executed with cwd set to
+    # its own directory, so a relative path would silently fail there.
+    msconvert_path = _resolve_tool(args.msconvert)
+    xtract_path = _resolve_tool(args.xtract)
 
     print(f"MSConvert: {msconvert_path}")
     print(f"xtract_xml: {xtract_path}")

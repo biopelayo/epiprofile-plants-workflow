@@ -38,7 +38,7 @@ msconvert_centroid: "vendor"
 xtract_xml_path: "$FAKE/xtract_xml.py"
 EOF
 
-echo "== [1/3] Snakemake: download_report -> convert_raw_to_mzml -> extract_ms1_ms2_text"
+echo "== [1/4] Snakemake: download_report -> convert_raw_to_mzml -> extract_ms1_ms2_text"
 cd "$REPO"
 snakemake -s workflow/Snakefile --configfile "$WORK/config_smoke.yml" -c1 --quiet rules
 
@@ -50,16 +50,26 @@ grep -q '"layout": "full"' "$BASE/conversion_manifest.json" || { echo "FAIL: man
 ls "$BASE/MS2" | grep -q 'HCD' && { echo "FAIL: .HCD.FTMS.ms2 not renamed"; exit 1; }
 echo "   OK: 3 x .ms1, 3 x .ms2, 3 x .raw placeholders"
 
-echo "== [2/3] Snakemake re-run is a no-op"
+echo "== [2/4] Snakemake re-run is a no-op"
 snakemake -s workflow/Snakefile --configfile "$WORK/config_smoke.yml" -c1 all 2>&1 | grep -q "Nothing to be done" \
     || { echo "FAIL: re-run was not a no-op"; exit 1; }
 echo "   OK: nothing to be done"
 
-echo "== [3/3] Standalone convert_and_extract.py"
+echo "== [3/4] Standalone convert_and_extract.py (relative tool paths)"
 mkdir -p "$WORK/standalone/$PXD/raw" && cp "$BASE/raw/"*.raw "$WORK/standalone/$PXD/raw/"
+# Relative paths on purpose: xtract runs with cwd=its own dir, so the script
+# must resolve them to absolute first (regression for a silent-failure bug).
 python3 workflow/scripts/convert_and_extract.py --pxd "$PXD" --base "$WORK/standalone" \
-    --msconvert "$FAKE/msconvert.py" --xtract "$FAKE/xtract_xml.py" | grep -E "\[OK\]|\[FAIL\]"
+    --msconvert tests/fakebin/msconvert.py --xtract tests/fakebin/xtract_xml.py | grep -E "\[OK\]|\[FAIL\]"
 [ "$(ls "$WORK/standalone/$PXD/MS1_MS2/"*.ms2 | wc -l)" -eq 3 ] || { echo "FAIL: standalone"; exit 1; }
+[ ! -d "$WORK/standalone/$PXD/mzML" ] || { echo "FAIL: mzML not cleaned after success"; exit 1; }
+
+echo "== [4/4] Standalone keeps mzML when extraction fails"
+mkdir -p "$WORK/neg/$PXD/raw" && cp "$BASE/raw/"*.raw "$WORK/neg/$PXD/raw/"
+python3 workflow/scripts/convert_and_extract.py --pxd "$PXD" --base "$WORK/neg" \
+    --msconvert "$FAKE/msconvert.py" --xtract /bin/false > /dev/null || true
+[ "$(ls "$WORK/neg/$PXD/mzML/"*.mzML | wc -l)" -eq 3 ] || { echo "FAIL: mzML deleted despite errors"; exit 1; }
+echo "   OK: mzML/ preserved for retry"
 
 echo
 echo "SMOKE TEST PASSED"
