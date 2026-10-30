@@ -4,10 +4,11 @@ pxd_triada_pipeline.py
 
 1) Download vendor RAW files for a ProteomeXchange accession (PXD...)
 2) Convert to mzML with MSConvert
-3) Create triada structure:
-   - triada/ms1   (MS1-only mzML)
-   - triada/ms2   (MS2+ mzML)
-   - triada/raw_empty (empty placeholders + manifest)
+3) Output layout (--layout):
+   - full (default): mzML/<sample>.mzML  (one centroided MS1+MS2 file per raw;
+     this is what xtract_xml.exe / rules/ms1_ms2.smk consume)
+   - triada (legacy): triada/ms1, triada/ms2 (split by MS level),
+     triada/raw_empty (empty placeholders + manifest)
 
 Dependencies:
   pip install pridepy ppx
@@ -372,6 +373,62 @@ def convert_one(
     }
 
 
+def convert_one_full(
+    raw_path: Path,
+    mzml_dir: Path,
+    logs: Path,
+    opt: ConvertOptions,
+) -> dict:
+    """
+    Convert one raw file into a single full (MS1+MS2) centroided mzML.
+
+    This is the layout consumed by xtract_xml.exe (rules/ms1_ms2.smk and
+    convert_and_extract.py): mzML/<stem>.mzML
+    """
+    stem = safe_stem(raw_path)
+
+    prefix_filters: list[str] = []
+    if opt.centroid == "vendor":
+        prefix_filters = ["peakPicking vendor msLevel=1-", "metadataFixer"]
+    elif opt.centroid == "cwt":
+        prefix_filters = ["peakPicking cwt msLevel=1-", "metadataFixer"]
+    elif opt.centroid == "none":
+        pass
+    else:
+        raise ValueError(f"centroid must be none|vendor|cwt, got '{opt.centroid}'")
+
+    mzml_dir.mkdir(parents=True, exist_ok=True)
+    logs.mkdir(parents=True, exist_ok=True)
+
+    suffix = ".mzML.gz" if opt.gzip else ".mzML"
+    outfile = f"{stem}{suffix}"
+    final = mzml_dir / outfile
+
+    if final.exists() and final.stat().st_size > 0:
+        print(f"    skip (exists): {final}")
+    else:
+        cmd = build_msconvert_cmd(
+            opt.msconvert, raw_path, mzml_dir, outfile,
+            filters=prefix_filters,
+            gzip=opt.gzip,
+            bit_depth=opt.bit_depth,
+        )
+        run_cmd(cmd, log_path=logs / f"{stem}.msconvert.log")
+
+    if not final.exists() or final.stat().st_size == 0:
+        raise RuntimeError(
+            f"Conversion produced no/empty output: {final}\n"
+            f"Check log: {logs / f'{stem}.msconvert.log'}"
+        )
+
+    return {
+        "input": str(raw_path),
+        "mzml": str(final),
+        "mzml_size": final.stat().st_size,
+        "mzml_sha256": sha256_file(final),
+    }
+
+
 # ---------------------------------------------------------------------------
 # raw_empty placeholders
 # ---------------------------------------------------------------------------
@@ -423,6 +480,12 @@ def main() -> None:
                     help="Centroiding mode (default: none)")
     ap.add_argument("--bit-depth", type=int, default=64, choices=[32, 64],
                     help="Binary encoding precision (default: 64)")
+    ap.add_argument("--layout", default="full", choices=["full", "triada"],
+                    help="Output layout: 'full' = one centroided mzML per raw in "
+                         "<out>/<mzml-dir>/ (what xtract_xml needs, default); "
+                         "'triada' = legacy MS1/MS2 split under <out>/triada/")
+    ap.add_argument("--mzml-dir", default="mzML",
+                    help="Subdir for full mzML output when --layout full (default: mzML)")
     args = ap.parse_args()
 
     pxd = args.pxd.strip()
@@ -507,9 +570,13 @@ def main() -> None:
     # ------------------------------------------------------------------
     # Step 3: raw_empty placeholders
     # ------------------------------------------------------------------
-    print(f"\n[STEP 3] Creating raw_empty placeholders ...")
-    create_raw_empty_placeholders(raw_files, raw_empty)
-    print(f"  Done: {raw_empty}")
+    if args.layout == "triada":
+        print(f"\n[STEP 3] Creating raw_empty placeholders ...")
+        create_raw_empty_placeholders(raw_files, raw_empty)
+        print(f"  Done: {raw_empty}")
+    else:
+        print(f"\n[STEP 3] raw_empty placeholders skipped (layout=full; "
+              f"RawData/ placeholders are created by the xtract_xml step)")
 
     if args.download_only:
         elapsed = time.time() - t0
@@ -519,7 +586,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     # Step 4: MSConvert -> MS1 / MS2
     # ------------------------------------------------------------------
-    print(f"\n[STEP 4] Converting raw -> mzML (MS1 + MS2) ...")
+    print(f"\n[STEP 4] Converting raw -> mzML (layout: {args.layout}) ...")
     msconvert_path = args.msconvert
     if os.path.sep not in msconvert_path and "/" not in msconvert_path and "\\" not in msconvert_path:
         msconvert_path = which_or_die(msconvert_path)
@@ -542,13 +609,18 @@ def main() -> None:
     conversions: list[dict] = []
     errors: list[dict] = []
 
+    full_mzml_dir = root / args.mzml_dir
     for i, rf in enumerate(primary_raw, 1):
         print(f"\n  [{i}/{len(primary_raw)}] Converting {rf.name} ...")
         try:
-            record = convert_one(rf, triada_ms1, triada_ms2, logs, opt)
+            if args.layout == "full":
+                record = convert_one_full(rf, full_mzml_dir, logs, opt)
+                print(f"    mzML: {record['mzml_size']:,} bytes -> {record['mzml']}")
+            else:
+                record = convert_one(rf, triada_ms1, triada_ms2, logs, opt)
+                print(f"    MS1: {record['ms1_size']:,} bytes -> {record['ms1']}")
+                print(f"    MS2: {record['ms2_size']:,} bytes -> {record['ms2']}")
             conversions.append(record)
-            print(f"    MS1: {record['ms1_size']:,} bytes -> {record['ms1']}")
-            print(f"    MS2: {record['ms2_size']:,} bytes -> {record['ms2']}")
         except Exception as e:
             err = {"input": str(rf), "error": str(e)}
             errors.append(err)
@@ -556,6 +628,8 @@ def main() -> None:
 
     manifest = {
         "pxd": pxd,
+        "layout": args.layout,
+        "mzml_dir": str(full_mzml_dir if args.layout == "full" else triada),
         "conversions": conversions,
         "errors": errors,
         "total_converted": len(conversions),
@@ -572,7 +646,7 @@ def main() -> None:
         print(f"[WARN] {len(errors)} file(s) failed conversion.")
     print(
         f"[OK] Converted {len(conversions)}/{len(primary_raw)} raw runs "
-        f"into triada/ under {triada}"
+        f"into {manifest['mzml_dir']}"
     )
     print(f"  Manifest: {manifest_path}")
     print(f"  Elapsed:  {elapsed:.0f}s")

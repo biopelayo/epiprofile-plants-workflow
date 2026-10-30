@@ -24,9 +24,10 @@ rule download_pxd:
         os.path.join(config["base_dir"], "logs", "download.log"),
     shell:
         r"""
+        mkdir -p "$(dirname {log})"
         python workflow/scripts/pxd_triada_pipeline.py \
             {params.pxd} \
-            --out {params.out_root} \
+            --out "{params.out_root}" \
             --protocol {params.protocol} \
             {params.checksum} \
             --download-only \

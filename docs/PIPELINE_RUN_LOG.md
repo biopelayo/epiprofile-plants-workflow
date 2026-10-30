@@ -326,6 +326,14 @@ tool (pXtract, bundled with pFind/EpiProfile). The correct pipeline is:
 The old triada ms1/ms2 mzML directories (76 GB total) were deleted to free disk
 space before running the new conversion.
 
+**Snakemake fix (2026-10):** `rules/mzml.smk` used to call
+`pxd_triada_pipeline.py --convert-only`, which produced the triada split
+layout, while `rules/ms1_ms2.smk` looked for full mzML in `mzML/`. The chain
+could not run end to end. `pxd_triada_pipeline.py` now has `--layout full`
+(default) writing `mzML/<sample>.mzML`, and the rule uses it. The legacy
+behaviour is kept under `--layout triada`. `tests/run_smoke_test.sh` exercises
+the full chain offline.
+
 ### 9.2 Tool and command
 
 ```
@@ -449,7 +457,7 @@ Point MATLAB EpiProfile at any batch's `RawData/` path via `paras.txt`:
 ```ini
 [EpiProfile]
 raw_path=D:\epiprofile_data\organized\PXD046034\batches\3905_wt\RawData
-norganism=1    ; 1=Human (closest available for Arabidopsis)
+norganism=1    ; 1=Arabidopsis thaliana in epiprofile-plants (1=Human in upstream EpiProfile 2.0)
 nsource=1      ; LFQ
 nsubtype=0     ; light only
 ```

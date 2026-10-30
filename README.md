@@ -76,7 +76,10 @@ epiprofile-plants-workflow/
     config_pxd014739.yml           # PXD014739 dataset config
     config_ontogeny_demo.yml       # Demo/template config
   envs/
-    snakemake.yml                  # Conda environment (Python 3.11, Snakemake 7-9)
+    snakemake.yml                  # Conda environment (Snakemake 7+, pridepy, ppx)
+  tests/
+    run_smoke_test.sh              # Offline end-to-end test with fake binaries
+    fakebin/                       # msconvert.py / xtract_xml.py stand-ins
   docs/
     PIPELINE_RUN_LOG.md            # Detailed execution log (all 3 PXDs)
     TUTORIAL.md                    # Step-by-step guide
@@ -102,6 +105,11 @@ download_pxd    ->    convert_raw_to_mzml   ->    extract_ms1_ms2_text
 download_report.json  conversion_manifest.json    MS1/ MS2/ RawData/
 ```
 
+`convert_raw_to_mzml` writes one full centroided mzML per raw file to
+`<base_dir>/<mzml_dir>/` (`pxd_triada_pipeline.py --layout full`), which is
+exactly what `extract_ms1_ms2_text` reads. The legacy MS1/MS2-split layout is
+still available with `--layout triada` for the standalone script only.
+
 Each rule reads its settings from a YAML config file. Run with:
 
 ```bash
@@ -121,7 +129,20 @@ snakemake -s workflow/Snakefile --configfile config/config_pxd046034.yml
 | `msconvert_path` | Path to MSConvert binary | `"D:/MS/.../msconvert.exe"` |
 | `msconvert_centroid` | Centroiding mode | `"vendor"` |
 | `xtract_xml_path` | Path to xtract_xml.exe | `"D:/EpiProfile2.1_.../xtract_xml.exe"` |
+| `mzml_dir` | Subdir for intermediate mzML (default `MS1`/`MS2` for outputs) | `"mzML"` |
 | `download_protocol` | PRIDE download method | `"ftp"` |
+
+### Smoke test (no Windows tools needed)
+
+`tests/run_smoke_test.sh` runs the whole Snakemake chain plus the standalone
+script on synthetic `.raw` files, using fake MSConvert / xtract_xml stand-ins
+in `tests/fakebin/`. It checks the rule wiring, the mzML layout handoff, the
+`.HCD.FTMS.ms2` rename and the `RawData/` placeholders:
+
+```bash
+pip install snakemake      # or: mamba env create -f envs/snakemake.yml
+bash tests/run_smoke_test.sh
+```
 
 ---
 
@@ -142,7 +163,7 @@ python workflow/scripts/convert_and_extract.py --pxd PXD046034
 
 | Script | Purpose | Usage |
 |--------|---------|-------|
-| `pxd_triada_pipeline.py` | Download `.raw` from PRIDE + MSConvert to mzML | `--download-only` or `--convert-only` |
+| `pxd_triada_pipeline.py` | Download `.raw` from PRIDE + MSConvert to mzML | `--download-only` or `--convert-only [--layout full\|triada]` |
 | `convert_and_extract.py` | Full pipeline: raw → mzML → xtract_xml → .ms1/.ms2 → organize | `--pxd PXD046034 [--base DIR]` |
 
 ---
